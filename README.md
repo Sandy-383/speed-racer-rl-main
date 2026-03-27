@@ -1,156 +1,161 @@
-# speed-racer-rl
+# Speed Racer RL — Python Web App
 
-A reinforcement learning project built around a custom 2D top-down racing simulator written in C++.  
-The environment uses LIDAR-style raycasts for perception and trains a Deep Q-Network (DQN) agent using libtorch.  
-Training runs headless, while trained models can be replayed visually using Raylib.
+An interactive browser-based visualizer for the Speed Racer RL project.
+Watch a trained Deep Q-Network agent drive autonomously around a 2D racing track in real time, with live LIDAR rays, Q-value charts, and lap telemetry — all in your browser.
 
-This repository focuses on the learning system and simulator, not the standalone game implementation.
+---
 
-## Overview
+## What It Does
 
-The project consists of two main executables:
+The web app reimplements the original C++ replay system entirely in Python and streams it to a browser over WebSockets.
 
-- **Training** (`racing_trainer.cpp`)  
-  Headless reinforcement learning using a vanilla DQN agent.
+- Loads trained `.pt` model checkpoints from `sampleModels/`
+- Runs the physics simulation and DQN inference on the server (Python + PyTorch)
+- Sends frame data to the browser 30 times per second via Socket.IO
+- Renders the track, car, LIDAR rays, checkpoints, and HUD on an HTML5 Canvas
 
-- **Replay** (`racing_replay.cpp`)  
-  Loads a trained model and visualizes behavior in real time.
+---
 
-The environment is fully custom, including physics, collision handling, checkpoint logic, and reward shaping.
+## Project Structure
 
-## Environment
-
-- 2D pixel-based racing track
-- Custom physics (speed, friction/drag, steering, wall/grass collisions)
-- Checkpoint + lap system
-- Deterministic step-based simulation
-
-Tracks and assets live in `assets/`.
-
-## Observation Space
-
-The agent observes an 18-dimensional state vector:
-
-- normalized speed
-- `sin(heading)`, `cos(heading)`
-- normalized position `(x, y)`
-- 13 LIDAR-style raycasts
-
-Raycasts span −90° to +90° relative to the car’s heading and return a normalized danger value:
-
-```text
-danger = 1 / ((distance / reference_distance) + 0.1)
+```
+webapp/
+├── app.py               # Flask + Socket.IO server, game session management
+├── simulator.py         # Physics engine, LIDAR raycasting, checkpoint logic
+├── model_loader.py      # PyTorch DQN model loading (multi-strategy)
+├── convert_models.py    # One-shot utility to convert C++ .pt files
+├── requirements.txt     # Python dependencies
+├── templates/
+│   └── index.html       # Main UI (Jinja2 template)
+└── static/
+    ├── css/style.css    # Dark theme, glassmorphism UI
+    └── js/game.js       # Canvas rendering, Socket.IO client
 ```
 
-Values are clamped to `[0, 1]`.
+---
 
-## Action Space
+## Requirements
 
-Discrete action space with 7 actions:
+- Python 3.9 or newer
+- pip
 
-0. accelerate forward  
-1. reverse  
-2. steer left  
-3. steer right  
-4. forward + left  
-5. forward + right  
-6. no input  
+---
 
-## Reward Structure
-
-The reward function is shaped using:
-
-- progress toward next checkpoint
-- small speed incentive (scaled conservatively)
-- checkpoint reward
-- lap completion reward
-- finish reward
-- time penalty
-- wall collision penalty
-- grass penalty
-- anti-idle penalty
-
-Episodes may terminate early if the vehicle becomes stuck or stops making progress.
-
-## Training Behavior
-
-Observed training characteristics:
-
-- early models tend to drive conservatively but complete laps reliably
-- later models learn higher speeds but often degrade and crash
-- fine-tuning from a stable checkpoint (lower learning rate + lower epsilon floor) significantly improves stability
-
-Several example models are included for comparison.
-
-## Repository Structure
-
-```text
-.
-├── assets/              # Track images and environment assets
-├── sampleModels/        # Example trained models
-├── CMakeLists.txt
-├── LICENSE
-├── README.md
-├── analyze_training.cpp # Training log analysis utilities
-├── dqn.h                # DQN network and agent implementation
-├── main.cpp             # Shared entry point / utilities
-├── racing_replay.cpp    # Visual replay executable
-├── racing_trainer.cpp   # Headless training executable
-└── replay_buffer.h      # Experience replay buffer
-```
-
-## Building
-
-The project uses CMake.
-
-### Dependencies
-
-- C++17 or newer
-- Raylib
-- libtorch (PyTorch C++)
-
-### Build
+## Installation
 
 ```bash
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Release
+cd webapp
+pip install -r requirements.txt
 ```
 
-This produces separate trainer and replay executables.
+---
 
-## Running Replay
-
-To visualize a file from `sampleModels/`:
+## Running
 
 ```bash
-./racing_replay sampleModels/best.pt
+python app.py
 ```
 
-Replay runs in real time and renders the environment, vehicle, and perception rays.
+Then open **http://localhost:5000** in your browser.
 
-## Training
+---
 
-To train a new agent:
+## If Models Fail to Load
+
+The `.pt` files were saved by C++ LibTorch, which uses a different serialization format than Python PyTorch.
+If the app shows a load error, run the conversion utility once:
 
 ```bash
-./racing_trainer
+python convert_models.py
 ```
 
-Training runs headless and periodically saves model checkpoints.
+This creates Python-compatible copies prefixed with `py_` in `sampleModels/`.
+Restart the app and select one of the `py_` models from the dropdown.
 
-Exact behavior (episode length, epsilon schedule, learning rate, etc.) is defined in code and can be adjusted in `racing_trainer.cpp`.
+---
+
+## UI Overview
+
+| Area | Description |
+|---|---|
+| **Canvas** | Live 900×900 race track with car, LIDAR rays, and checkpoints |
+| **Speed Gauge** | Arc gauge showing current speed (0–300 units/s) |
+| **Race Info** | Current lap, lap time, best lap time |
+| **Q-Values** | Live bar chart of the neural network's 7 output values |
+| **Lap Times** | Per-lap history with best lap highlighted in gold |
+| **Model Selector** | Switch between trained checkpoints |
+
+---
+
+## Controls
+
+| Button | Action |
+|---|---|
+| **Start Race** | Load selected model and begin simulation |
+| **Restart** | Reset car to start position |
+| **LIDAR: ON/OFF** | Toggle LIDAR ray visualization |
+
+---
+
+## LIDAR Visualization
+
+The agent perceives the track through 18 raycasts cast from the car:
+
+- **Orange rays (13)** — Short range (200 px), span ±90°. Return a danger value `= 1 / ((dist/50) + 0.1)`, clamped to [0, 1]. Used for immediate wall avoidance.
+- **Cyan rays (5)** — Long range (900 px), span ±30°. Return normalized distance `dist / 900`. Used for anticipating upcoming corners.
+
+---
 
 ## Sample Models
 
-The `sampleModels/` directory contains trained checkpoints from different stages of learning.
+| Model | Training Stage | Expected Behavior |
+|---|---|---|
+| `model_episode_50.pt` | Very early | Mostly random, frequent crashes |
+| `model_episode_100.pt` | Early | Starts following the track loosely |
+| `model_episode_200.pt` | Mid | Occasional lap completions |
+| `model_episode_500.pt` | Intermediate | Consistent laps, higher speed attempts |
+| `model_episode_1000.pt` | Trained | Smooth, reliable multi-lap racing |
+| `best_time.pt` | Speed-optimized | Fastest recorded finish, aggressive lines |
 
-Typical progression:
+**Demo tip:** Show `episode_50` first, then switch to `best_time` to demonstrate how far the agent has learned.
 
-- early episodes: safe but slow driving
-- mid training: inconsistent lap completion
-- fine-tuned models: stable multi-lap behavior
+---
 
-These models are included for demonstration and replay purposes.
+## How It Works
 
+```
+Browser                          Server (Python)
+  │                                    │
+  │── socket.emit('start', model) ────▶│  Load .pt model (PyTorch)
+  │                                    │  Start 30 FPS game loop thread
+  │                                    │
+  │                                    │  Every frame:
+  │                                    │   1. Build 23-dim state vector
+  │                                    │   2. DQN forward pass → 7 Q-values
+  │                                    │   3. Select argmax action
+  │                                    │   4. Step physics (speed, angle, position)
+  │                                    │   5. Cast 18 LIDAR rays
+  │                                    │   6. Check checkpoint crossings
+  │                                    │
+  │◀── socket.on('frame', data) ──────│  Emit frame data (position, angle,
+  │                                    │   speed, LIDAR hits, Q-values, lap info)
+  │
+  │  Canvas renders:
+  │   - Track image
+  │   - Checkpoint lines (color-coded)
+  │   - LIDAR rays with glow effect
+  │   - Car sprite (rotated to heading)
+  │   - Speed gauge + Q-value bars
+```
+
+---
+
+## Dependencies
+
+| Package | Purpose |
+|---|---|
+| `flask` | Web server |
+| `flask-socketio` | WebSocket communication |
+| `torch` | DQN model inference |
+| `pillow` | Track image pixel access for LIDAR |
+| `numpy` | Fast pixel array operations |
