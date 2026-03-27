@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Speed Racer RL</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<header>
+  <div class="logo">SPEED RACER RL</div>
+  <div class="header-badge">Deep Q-Network</div>
+  <div class="spacer"></div>
+  <div class="status-dot" id="status-dot"></div>
+  <span id="status-label">Connecting…</span>
+</header>
+
+<main>
+  <!-- ── Left: Canvas ── -->
+  <div class="canvas-wrap">
+    <div class="canvas-container">
+      <canvas id="track" width="900" height="900"></canvas>
+
+      <!-- Idle overlay -->
+      <div id="overlay">
+        <div class="overlay-icon">🏎️</div>
+        <div class="overlay-title">SELECT &amp; START</div>
+        <div class="overlay-hint">Choose a model and press Start Race</div>
+      </div>
+
+      <!-- Finish overlay -->
+      <div id="finish-overlay">
+        <div class="finish-title">RACE FINISHED!</div>
+        <div class="finish-time">Total: <strong id="finish-total">0.00s</strong></div>
+        <div class="finish-laps" id="finish-laps"></div>
+        <button class="btn btn-primary" onclick="document.getElementById('btn-restart').click()">RACE AGAIN</button>
+      </div>
+    </div>
+
+    <!-- Controls bar -->
+    <div class="controls-bar">
+      <select id="model-sel">
+        <option value="">— Select Model —</option>
+        {% for m in models %}
+        <option value="{{ m.path }}">{{ m.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary"    id="btn-start">   START RACE</button>
+      <button class="btn btn-secondary"  id="btn-restart" disabled>RESTART</button>
+      <button class="btn btn-secondary"  id="btn-lidar">LIDAR: ON</button>
+
+      <div class="stat-pill">
+        <div class="stat-item">
+          <span class="stat-label">Steps</span>
+          <span class="stat-value" id="info-steps">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Wall Hits</span>
+          <span class="stat-value" id="info-walls">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Action</span>
+          <span class="stat-value" id="info-action" style="font-size:.7rem;color:var(--cyan)">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: Sidebar ── -->
+  <div class="sidebar">
+
+    <!-- Speed Gauge -->
+    <div class="card">
+      <div class="card-title">Speed</div>
+      <div id="gauge-wrap">
+        <canvas id="gauge-canvas" width="200" height="120"></canvas>
+        <div id="speed-readout">0<span>UNITS/S</span></div>
+      </div>
+    </div>
+
+    <!-- Race Info -->
+    <div class="card">
+      <div class="card-title">Race Info</div>
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="label">Lap</div>
+          <div class="value cyan" id="info-lap">0 / 3</div>
+        </div>
+        <div class="info-cell">
+          <div class="label">Lap Time</div>
+          <div class="value" id="info-time">—</div>
+        </div>
+        <div class="info-cell" style="grid-column:span 2">
+          <div class="label">Best Lap</div>
+          <div class="value gold" id="info-best">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q-Values -->
+    <div class="card">
+      <div class="card-title">Q-Values (Neural Network Output)</div>
+      <div class="q-bars">
+        {% for label in ['↑ Fwd','↓ Rev','← Left','→ Right','↖ F+L','↗ F+R','○ Coast'] %}
+        <div class="q-row">
+          <div class="q-label">{{ label }}</div>
+          <div class="q-bar-bg"><div class="q-bar-fill"></div></div>
+          <div class="q-val">0.00</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Lap Times -->
+    <div class="card">
+      <div class="card-title">Lap Times</div>
+      <div class="lap-list" id="lap-list">
+        <div class="lap-placeholder">No laps yet</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Error Toast -->
+<div id="error-toast"></div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html>
