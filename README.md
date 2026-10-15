@@ -7,7 +7,7 @@ Watch a trained Deep Q-Network agent drive autonomously around a 2D racing track
 
 ## What It Does
 
-The web app reimplements the original C++ replay system entirely in Python and streams it to a browser over WebSockets.
+The simulation, model inference, and rendering pipeline run entirely in Python, streamed to a browser over WebSockets.
 
 - Loads trained `.pt` model checkpoints from `sampleModels/`
 - Runs the physics simulation and DQN inference on the server (Python + PyTorch)
@@ -19,17 +19,21 @@ The web app reimplements the original C++ replay system entirely in Python and s
 ## Project Structure
 
 ```
-webapp/
-├── app.py               # Flask + Socket.IO server, game session management
-├── simulator.py         # Physics engine, LIDAR raycasting, checkpoint logic
-├── model_loader.py      # PyTorch DQN model loading (multi-strategy)
-├── convert_models.py    # One-shot utility to convert C++ .pt files
-├── requirements.txt     # Python dependencies
-├── templates/
-│   └── index.html       # Main UI (Jinja2 template)
-└── static/
-    ├── css/style.css    # Dark theme, glassmorphism UI
-    └── js/game.js       # Canvas rendering, Socket.IO client
+.
+├── assets/                    # Track and car images
+├── sampleModels/              # Trained DQN checkpoints (.pt)
+└── webapp/
+    ├── app.py                 # Flask + Socket.IO server, game session management
+    ├── simulator.py           # Physics engine, LIDAR raycasting, checkpoint logic
+    ├── model_loader.py        # PyTorch DQN model loading (multi-strategy)
+    ├── requirements.txt       # Python dependencies
+    ├── templates/
+    │   └── index.html         # Main UI (Jinja2 template)
+    └── static/
+        ├── css/style.css      # Dark theme, glassmorphism UI
+        └── js/
+            ├── game.js        # Canvas rendering, Socket.IO client
+            └── socket.io.min.js  # Bundled Socket.IO client (no CDN needed)
 ```
 
 ---
@@ -57,20 +61,6 @@ python app.py
 ```
 
 Then open **http://localhost:5000** in your browser.
-
----
-
-## If Models Fail to Load
-
-The `.pt` files were saved by C++ LibTorch, which uses a different serialization format than Python PyTorch.
-If the app shows a load error, run the conversion utility once:
-
-```bash
-python convert_models.py
-```
-
-This creates Python-compatible copies prefixed with `py_` in `sampleModels/`.
-Restart the app and select one of the `py_` models from the dropdown.
 
 ---
 

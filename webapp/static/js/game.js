@@ -294,7 +294,7 @@ socket.on('frame', d => {
 });
 
 socket.on('load_error', data => {
-  showError('Model load failed: ' + data.msg + ' — Try running convert_models.py first.');
+  showError('Model load failed: ' + data.msg);
   btnStart.disabled = false;
   statusLabel.textContent = 'Error';
 });
